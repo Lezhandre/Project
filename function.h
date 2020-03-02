@@ -10,7 +10,7 @@
 using namespace std;
 
 const double e = 2.718282;
-const double pi = 3.141593;
+const double pi = 3.141593; //объявление математических констант, думал запилить их ввод с клавиатуры
 
 inline short priority(string s){
     if (s == "+")
@@ -29,6 +29,9 @@ inline short priority(string s){
         return 6;
     return 7;
 }
+/*
+ * Возвращает приоритет операций
+ */
 
 inline double strtodbl(string s){
     int t = 1;
@@ -59,6 +62,10 @@ inline double strtodbl(string s){
     return t * a;
 }
 
+/*
+ * Переводит строку в тип double
+ */
+
 class fun{
 public:
     string s;
@@ -75,6 +82,9 @@ private:
         str.resize(j);
         return str;
     }
+    /*
+     * Интересный алгоритм, который применяется, только чтобы убрать кучу пробелов
+     */
 
     void function(string f){
         unsigned i;
@@ -100,6 +110,9 @@ private:
             f.resize(f.size() - t);
             f = f.substr(t);
         }
+        /*
+         * Эта часть кода просматривает строку на наличие ошибок в расставление скобок
+         */
 
         string h;
         short pr = 7;
@@ -129,6 +142,9 @@ private:
                 }
             }
         }
+        /*
+         * Эта часть кода ищет операцию с наименьшим приоритетом
+         */
 
         if (pr != 7)
             left = new fun;
@@ -162,6 +178,9 @@ private:
         }
         else
             s = f;
+        /*
+         * Эта часть кода разделяет сложную функцию как функцию от нескольких функций, аля f(g(x), h(x)) = g(x) + h(x)
+         */
     }
 
 public:
@@ -192,7 +211,7 @@ public:
         if (s == "sin")
             return sin(left->fun_val(x));
         if (s == "cos")
-            return cos(left->fun_val(x));
+            return cos(left->fun_val(x)); // возврат значений функций
         if (s == "int"){
             long long n = 2;
             double a, b, sn, s2n;
@@ -212,7 +231,7 @@ public:
         }
         if (s == "")
             return 0;
-        return strtodbl(s);
+        return strtodbl(s); //вычисление интеграла
     }
 
     double min(double a, double b){
@@ -222,6 +241,7 @@ public:
         }
         return m;
     }
+    //вычисление минимума на отрезке
 
     double max(double a, double b){
         double m = this->fun_val(a), step = (b - a) / 540;
@@ -230,6 +250,7 @@ public:
         }
         return m;
     }
+    //вычисление максимума на отрезке
 };
 
 #endif // FUNCTION_H

@@ -5,14 +5,11 @@
 #include <string>
 #include <stack>
 #include <cmath>
+#include <cstdlib>
 #include <algorithm>
 
-using namespace std;
-
-const double e = 2.718282;
-const double pi = 3.141593; //объявление математических констант, думал запилить их ввод с клавиатуры
-
-inline short priority(string s){
+// Возвращает приоритет операций
+inline short priority(const std::string& s){
     if (s == "+")
         return 0;
     if (s == "-")
@@ -25,232 +22,301 @@ inline short priority(string s){
         return 4;
     if (s == "^")
         return 5;
-    if (s == "log" || s == "sin" || s == "cos")
+    if (s == "log" || s == "sin" || s == "cos" || s == "exp")
         return 6;
-    return 7;
-}
-/*
- * Возвращает приоритет операций
- */
-
-inline double strtodbl(string s){
-    int t = 1;
-    if (s[0] == '-'){
-        t = -1;
-    }
-    unsigned long i;
-    double a, b;
-    for (i = 0; i < s.size() && s[i] != '.'; ++i){
-        if (s[i] >= '0' && s[i] <= '9'){
-            a = a * 10 + s[i] - '0';
-        }
+    if (s == "e" || s == "pi" || s == "x")
+        return 7;
+    try {
+        char* end;
+        strtod(s.c_str(), &end);
+        if (end - s.c_str() < s.size() * sizeof(char))
+            return 8;
         else
-            return 0.0 / 0.0;
+            return 7;
+    } catch (std::exception& err) {
+        return 8;
     }
-    unsigned long n = 0;
-    if (i < s.size()){
-        n = s.size() - i - 1;
-        for (++i; i < s.size(); ++i){
-            if (s[i] >= '0' && s[i] <= '9'){
-                a = a * 10 + s[i] - '0';
-            }
-            else
-                return 0.0 / 0.0;
-        }
-    }
-    for (i = 0; i < n; ++i){a /= 10;}
-    return t * a;
 }
 
-/*
- * Переводит строку в тип double
- */
+// Интересный алгоритм, который применяется, только чтобы убрать кучу пробелов
+inline void exc_str(std::string& str){
+    int i, j;
+    for (i = 0, j = 0; i < str.size(); ++i){
+        if (str[i] != ' ') {
+            str[j] = str[i];
+            ++j;
+        }
+    }
+    str.resize(j);
+}
 
 class fun{
-public:
-    string s;
-    fun *left, *med, *right;
-    double eps;
-
 private:
-    string exc_str(string str){
-        int i, j;
-        for (i = 0, j = 0; i < str.size(); ++i){
-            if (str[i] != ' ')
-                str[j] = str[i], ++j;
+    // Класс-"вершина" с элементарной функцией
+    class elem_fun{
+    public:
+        std::string s;
+        elem_fun *left, *med, *right;
+        elem_fun(){
+            left = nullptr;
+            med = nullptr;
+            right = nullptr;
         }
-        str.resize(j);
-        return str;
-    }
-    /*
-     * Интересный алгоритм, который применяется, только чтобы убрать кучу пробелов
-     */
-
-    void function(string f){
-        unsigned i;
-        stack <char> pars;
-        unsigned t = 0;
-        for (i = 0; i < f.size() && f[i] == '('; ++i){
-            ++t;
-            pars.push(')');
-        }
-        for (; i < f.size(); ++i){
-            if (pars.size() != 0 && pars.top() == f[i])
-                pars.pop();
-            else if (f[i] == '(')
-                pars.push(')');
-            if (pars.size() < t && i < f.size() - t) //integral(0 ; x ; x^2)
-                --t;
-        }
-        if (pars.size() != 0){
-            s = "ooops!";
-            return;
-        }
-        if (t){
-            f.resize(f.size() - t);
-            f = f.substr(t);
-        }
-        /*
-         * Эта часть кода просматривает строку на наличие ошибок в расставление скобок
-         */
-
-        string h;
-        short pr = 7;
-        unsigned pos = 0;
-        for (i = 0; i < f.size(); ++i){
-            if (pars.size() != 0 && pars.top() == f[i])
-                pars.pop();
-            else if (f[i] == '(')
-                pars.push(')');
-            if (pars.size() == 0){
-                if ((h.resize(1), h[0] = f[i], priority(h) < pr) || priority(h) == pr && h == "/"){
-                    s = h;
-                    pr = priority(h);
-                    pos = i;
-                }
-                else if (i + 3 < f.size() && (h.resize(3), h[1] = f[i + 1], h[2] = f[i + 2], priority(h) < pr) && h != "int"){
-                    s = h;
-                    pr = priority(h);
-                    pos = i;
-                }
-                else if (i + 7 < f.size()){
-                    if (priority(h) < pr){
-                        s = h;
-                        pr = priority(h);
-                        pos = i;
-                    }
-                }
-            }
-        }
-        /*
-         * Эта часть кода ищет операцию с наименьшим приоритетом
-         */
-
-        if (pr != 7)
-            left = new fun;
-        if (pr <= 5)
-            right = new fun;
-        if (pr < 4 || pr == 5){
-            left->function(f.substr(0, pos));
-            right->function(f.substr(pos + 1));
-        }
-        else if (pr == 6){
-            left->function(f.substr(pos + 3));
-        }
-        else if (pr == 4){
-            med = new fun;
-            unsigned j = pos + 4;
-            for (i = j; i < f.size() && f[i] != ';' && f[i] != ','; ++i){
-                h.resize(i + 1 - j);
-                h[i - j] = f[i];
-            }
-            left->function(h);
-            for (++i, j = i; i < f.size() && f[i] != ';' && f[i] != ','; ++i){
-                h.resize(i + 1 - j);
-                h[i - j] = f[i];
-            }
-            med->function(h);
-            for (++i, j = i; f.size() && f[i] != ')'; ++i){
-                h.resize(i + 1 - j);
-                h[i - j] = f[i];
-            }
-            right->function(h);
-        }
-        else
-            s = f;
-        /*
-         * Эта часть кода разделяет сложную функцию как функцию от нескольких функций, аля f(g(x), h(x)) = g(x) + h(x)
-         */
-    }
-
+        bool function(const std::string&);
+        double fun_val(double, double&);
+        ~elem_fun();
+    };
+    double eps;     //точность вычислений
+    bool err;       //есть ли ошибка (true если есть)
+    elem_fun* ptr;  //последняя вычисляемая элем. функция
+    
 public:
-    void get_fun(string f){
-        f = exc_str(f);
-        function(f);
+    // Конструкторы
+    fun() : eps(1e-6), err(0), ptr(nullptr) {}
+    fun(std::string f) : eps(1e-6), err(0) {
+        ptr = new elem_fun();
+        if (ptr == nullptr)
+            err = 1;
+        else {
+            exc_str(f);
+            err = ptr->function(f);
+            if (err) {
+                ptr->~elem_fun();
+                delete ptr;
+                ptr = nullptr;
+            }
+        }
     }
-
+    
+    //акцессоры
+    void set_fun(std::string f){
+        ptr = new elem_fun();
+        if (ptr == nullptr)
+            err = 1;
+        else {
+            exc_str(f);
+            err = ptr->function(f);
+            if (err) {
+                ptr->~elem_fun();
+                delete ptr;
+                ptr = nullptr;
+            }
+        }
+    }
+    void set_acc(double acc){
+        if (acc > 0)
+            eps = acc;
+    }
+    bool is_err() { return err; }
+    double get_acc() { return eps; }
+    
+    /*\
+     * получения значения функции
+     * в какой-то точке
+    \*/
     double fun_val(double x){
-        if (s == "x" || s == "y")
-            return x;
-        if (s == "-")
-            return left->fun_val(x) - right->fun_val(x);
-        if (s == "+")
-            return left->fun_val(x) + right->fun_val(x);
-        if (s == "*")
-            return left->fun_val(x) * right->fun_val(x);
-        if (s == "/")
-            return left->fun_val(x) / right->fun_val(x);
-        if (s == "pi")
-            return pi;
-        if (s == "^")
-            return pow(left->fun_val(x), right->fun_val(x));
-        if (s == "exp")
-            return e;
-        if (s == "log")
-            return log(left->fun_val(x));
-        if (s == "sin")
-            return sin(left->fun_val(x));
-        if (s == "cos")
-            return cos(left->fun_val(x)); // возврат значений функций
-        if (s == "int"){
-            long long n = 2;
-            double a, b, sn, s2n;
-            a = left->fun_val(x);
-            b = med->fun_val(x);
-            eps = 0.00001 * n / fabs(b - a);
-            s2n = (right->fun_val(a) + right->fun_val(b)) / 2;
-            do {
-                sn = s2n;
-                for (long long i = 1; i < n; i += 2){
-                    s2n += right->fun_val(a + (b - a) * i / n);
-                }
-                n *= 2; eps *= 2;
-            } while(abs(s2n - 2 * sn) > eps);
-            double val = 2 * s2n / n * (b - a);
-            return val;
-        }
-        if (s == "")
-            return 0;
-        return strtodbl(s); //вычисление интеграла
+        if (!err)
+            return ptr->fun_val(x, eps);
+        return NAN;
     }
-
-    double min(double a, double b){
-        double m = this->fun_val(a), step = (b - a) / 540;
-        for (double i = a + step; i <= b; i += step){
-            m = m <= this->fun_val(i) ? m: this->fun_val(i);
-        }
-        return m;
-    }
+    
     //вычисление минимума на отрезке
-
-    double max(double a, double b){
-        double m = this->fun_val(a), step = (b - a) / 540;
-        for (double i = a + step; i <= b; i += step){
-            m = m >= this->fun_val(i) ? m: this->fun_val(i);
+    double min(double a, double b){
+        if (err) return NAN;
+        double m = ptr->fun_val(a, eps), step = eps;
+        for (double i = a + eps; i <= b; i += eps){
+            m = (m <= ptr->fun_val(i, eps)) ? m: ptr->fun_val(i, eps);
         }
         return m;
     }
     //вычисление максимума на отрезке
+    double max(double a, double b){
+        if (err) return NAN;
+        double m = ptr->fun_val(a, eps);
+        for (double i = a + eps; i <= b; i += eps){
+            m = (m >= ptr->fun_val(i, eps)) ? m: ptr->fun_val(i, eps);
+        }
+        return m;
+    }
+    
+    ~fun(){
+        if (ptr != nullptr)
+            delete ptr;
+    }
 };
+
+/*
+ * функция, распознающая следующую по приоритету
+ * элементарную функцию в строке и выделяющая её
+ * в отдельную подфункцию
+ * возвращает 1, если есть ошибка во входной строке
+ */
+bool fun::elem_fun::function(const std::string& f){
+    if (f == "")
+        return 1;
+    // Эта часть кода просматривает строку на наличие ошибок в расставлении скобок
+    unsigned i;
+    std::stack <char> pars;
+    unsigned t = 0;
+    for (i = 0; i < f.size() && f[i] == '('; ++i){
+        ++t;
+        pars.push(')');
+    }
+    for (; i < f.size(); ++i){
+        if (pars.size() != 0 && pars.top() == f[i])
+            pars.pop();
+        else if (f[i] == '(')
+            pars.push(')');
+        if (pars.size() < t && i < f.size() - t)
+            --t;
+    }
+    if (pars.size() != 0) {
+        return 1;
+    }
+    
+    // Эта часть кода ищет операцию с наименьшим приоритетом
+    std::string h;
+    short pr = 7;
+    unsigned pos = 0;
+    if (3 < f.size()) { //функции с аргументами после
+        h = f.substr(t, 3);
+        if (priority(h) < pr) {
+            s = h;
+            pr = priority(h);
+            pos = t;
+        }
+    }
+    h.resize(1);
+    size_t size = f.size() - t;
+    for (i = t; i < size; ++i){
+        if (pars.size() != 0 && pars.top() == f[i])
+            pars.pop();
+        else if (f[i] == '(')
+            pars.push(')');
+        if (pars.size() == 0) { //только если операция не в скобках
+            h[0] = f[i];
+            if (priority(h) < pr || priority(h) == pr && (h == "/" || h == "-")) {
+                s = h;
+                pr = priority(h);
+                pos = i;
+            }
+        }
+    }
+    
+    /*\
+     * Эта часть кода разделяет сложную функцию как функцию
+     * от нескольких функций, аля f(g(x), h(x)) = g(x) + h(x)
+    \*/
+    bool has_err;
+    if (pr != 7) { //создание новых элем. функций
+        left = new elem_fun();
+    } if (pr <= 5) {
+        right = new elem_fun();
+    } if (pr < 4 || pr == 5) {
+        h = f.substr(t, pos - t);
+        if (h == "" && pr < 2)
+            h = "0";
+        has_err = left->function(h);
+        has_err |= right->function(f.substr(pos + 1, size - (pos + 1)));
+        return has_err;
+    } if (pr == 6) {
+        has_err = left->function(f.substr(pos + 3, size - (pos + 3)));
+        return has_err;
+    } if (pr == 4) {
+        unsigned kostyl = 0; //нужен для учитывания скобок в 3-ем цикле
+        med = new elem_fun();
+        h.clear();
+        for (i = pos + 4; i < f.size() && f[i] != ';' && f[i] != ','; ++i){
+            h.push_back(f[i]);
+        }
+        has_err = left->function(h);
+        h.clear();
+        for (++i; i < f.size() && f[i] != ';' && f[i] != ','; ++i){
+            h.push_back(f[i]);
+        }
+        has_err |= med->function(h);
+        h.clear();
+        for (++i; f.size() && (f[i] != ')' || kostyl); ++i){
+            kostyl += (f[i] == '(');
+            kostyl -= (f[i] == ')');
+            h.push_back(f[i]);
+        }
+        has_err |= right->function(h);
+        return has_err;
+    } if (priority(f) == 7) {
+        s = f;
+        return 0;
+    }
+    return 1;
+}
+
+// Вычисление значения функции
+double fun::elem_fun::fun_val(double x, double& eps){
+    if (s == "x")
+        return x;
+    if (s == "-")
+        return left->fun_val(x, eps) - right->fun_val(x, eps);
+    if (s == "+")
+        return left->fun_val(x, eps) + right->fun_val(x, eps);
+    if (s == "*")
+        return left->fun_val(x, eps) * right->fun_val(x, eps);
+    if (s == "/")
+        return left->fun_val(x, eps) / right->fun_val(x, eps);
+    if (s == "pi")
+        return M_PI;
+    if (s == "^")
+        return pow(left->fun_val(x, eps), right->fun_val(x, eps));
+    if (s == "e")
+        return M_E;
+    if (s == "log")
+        return log(left->fun_val(x, eps));
+    if (s == "sin")
+        return sin(left->fun_val(x, eps));
+    if (s == "cos")
+        return cos(left->fun_val(x, eps));
+    if (s == "exp")
+        return exp(left->fun_val(x, eps));
+    if (s == "int") { //вычисление интеграла
+        double a, b;
+        a = left->fun_val(x, eps);
+        b = med->fun_val(x, eps);
+        double sum = right->fun_val(a, eps) + right->fun_val(b, eps), prev_sum = 0;
+        double hlp_var = 0;
+        long long n = 1;
+        while (fabs(sum - 2 * prev_sum) > eps * (15 * n)){
+            n <<= 1;
+            if (n == 0) //произошло переполнение
+                break;
+            prev_sum = sum;
+            sum -= 2 * hlp_var;
+            hlp_var = 0;
+            for (long long i = 1; i < n; i += 2)
+                hlp_var += right->fun_val(a + (b - a) * i / n, eps);
+            sum += 4 * hlp_var;
+        }
+        if (n != 0)
+            return sum * (b - a) / (3 * n);
+    }
+    return stod(s);
+}
+
+// Деструктор элем. функции
+fun::elem_fun::~elem_fun(){
+    if (left != nullptr) {
+        left->~elem_fun();
+        delete left;
+        left = nullptr;
+    }
+    if (med != nullptr) {
+        med->~elem_fun();
+        delete med;
+        med = nullptr;
+    }
+    if (right != nullptr) {
+        right->~elem_fun();
+        delete right;
+        right = nullptr;
+    }
+}
 
 #endif // FUNCTION_H

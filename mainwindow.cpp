@@ -31,7 +31,7 @@ void MainWindow::recountPixels() {
 void MainWindow::getData() {
     leftX = ui->inputLeftX->text().toDouble();
     rightX = ui->inputRightX->text().toDouble();
-    f.get_fun((ui->inputLeftX_4->text()).toStdString());
+    f.set_fun((ui->inputLeftX_4->text()).toStdString());
     leftY = f.min(leftX, rightX);
     rightY = f.max(leftX, rightX);
     step = (rightX - leftX) / pictWidth;
